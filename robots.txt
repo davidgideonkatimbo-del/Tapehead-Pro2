@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://tapehead-pro.vercel.app/sitemap.xml
