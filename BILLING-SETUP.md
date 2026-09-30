@@ -4,13 +4,13 @@ Pesapal API 3.0 hosted checkout (card + mobile money). The browser never receive
 
 ## 1. Supabase
 
-Run these SQL files in order (with the rest of your production migrations):
+Open Supabase > SQL Editor > New query, paste the whole of `www/supabase-ALL-IN-ONE.sql` and click Run.
+It contains every migration in the right order and is safe to run more than once. Do not run the other
+`supabase-*.sql` files separately (running them out of order causes errors such as
+`relation "public.rooms" does not exist`).
 
-1. `www/supabase-schema.sql`
-2. `www/supabase-security-hardening.sql`
-3. `www/supabase-pro.sql`
-
-No schema change is needed for Pesapal.
+Then make sure `www/cloud-config.js` (URL + anon key) and the Vercel variables `SUPABASE_URL`,
+`SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` all belong to the SAME Supabase project.
 
 ## 2. Pesapal account
 
