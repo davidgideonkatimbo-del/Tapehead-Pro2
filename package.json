@@ -1,0 +1,32 @@
+{
+  "name": "tapehead-pro",
+  "version": "1.10.14",
+  "description": "Tapehead Pro Studio \u2014 polished mobile DAW",
+  "private": true,
+  "scripts": {
+    "build:web": "echo 'Web assets are in www/'",
+    "cap:init": "npx cap init 'Tapehead Pro' com.tapehead.pro --web-dir www",
+    "cap:add": "npx cap add android",
+    "cap:sync": "npx cap sync android",
+    "cap:open": "npx cap open android",
+    "cap:add:android": "npx cap add android",
+    "cap:add:ios": "npx cap add ios",
+    "cap:sync:android": "npx cap sync android",
+    "cap:sync:ios": "npx cap sync ios",
+    "cap:sync:all": "npx cap sync",
+    "cap:open:android": "npx cap open android",
+    "cap:open:ios": "npx cap open ios",
+    "cap:open:all": "node -e \"console.log('Open Android with: npm run cap:open:android\\nOpen iOS with: npm run cap:open:ios')\""
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/app": "^6.0.1",
+    "@capacitor/status-bar": "^6.0.1",
+    "@capacitor/splash-screen": "^6.0.2",
+    "@capacitor/ios": "^6.1.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}
