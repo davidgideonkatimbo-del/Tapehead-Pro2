@@ -24,11 +24,13 @@ export const PLANS = {
   lifetime: { label: 'Lifetime', days: null, price: 49, env: 'PRO_LIFETIME_PRICE' }
 };
 
-// Tapehead Pro is always sold in USD. (Fixed in code so a stray env var can never change the charged currency.)
-export const PRO_CURRENCY = 'USD';
+// Tapehead Pro currency: USD by default. Set PRO_CURRENCY=UGX to charge in Ugandan shillings.
+// Only these two values are accepted, so a stray env var can never change the charged currency.
+export const PRO_CURRENCY = String(process.env.PRO_CURRENCY || 'USD').toUpperCase() === 'UGX' ? 'UGX' : 'USD';
 export function proCurrency() {
   return PRO_CURRENCY;
 }
+const UGX_DEFAULTS = { month: 25000 };
 
 export function publicAppUrl(req) {
   return String(process.env.PUBLIC_APP_URL || req?.headers?.origin || '').replace(/\/$/, '');
@@ -38,7 +40,10 @@ export function planAmount(planId) {
   const plan = PLANS[planId];
   if (!plan) return null;
   const raw = process.env[plan.env];
-  const amount = Number(raw !== undefined && raw !== '' ? raw : plan.price);
+  const fallback = PRO_CURRENCY === 'UGX' ? UGX_DEFAULTS[planId] : plan.price;
+  if (raw === undefined || raw === '') { if (fallback == null) return null; }
+  const amount = Number(raw !== undefined && raw !== '' ? raw : fallback);
+  if (PRO_CURRENCY === 'UGX') return Number.isFinite(amount) && amount > 0 ? Math.round(amount) : null;
   return Number.isFinite(amount) && amount > 0 ? Math.round(amount * 100) / 100 : null;
 }
 
