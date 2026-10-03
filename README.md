@@ -6,59 +6,67 @@ Mobile music studio — write lyrics, make beats, record vocals, mix, collab, an
 
 **Founder:** David Gideon Katimbo (Deon)
 
-**Legal:** [Privacy Policy](./privacy.html) · [Terms of Service](./terms.html)
+**Legal:** [Privacy Policy](https://tapehead-pro2.vercel.app/privacy.html) · [Terms of Service](https://tapehead-pro2.vercel.app/terms.html)
+
+
+## v1.10.0 — Guest exploration
+
+Core studio (Write, Beat, Keys, Record, Mix) is fully usable as a guest. Sign-in is only required for cloud save, Feed publish, Collab, messaging, and Cloud AI. Tap **Explore as guest** on first launch.
 
 ## Deploy
 
 ### Vercel
-Connect this repo to Vercel. Root directory = folder that contains `index.html` (this `www/` folder or repo root as configured).
+Connect this repo to Vercel. Set the root directory to the folder that contains `index.html` (typically `www/`).
 
-### Required files
+### Required web assets
 - `index.html`
 - `sw.js`
 - `cloud-config.js`
-- `manifest.webmanifest` + icons
+- `manifest.webmanifest` and icons
 - `og-image.jpg` (1200×630)
 - `robots.txt`, `sitemap.xml`
 - `privacy.html`, `terms.html`
 
 ### Supabase
-Run SQL in the Supabase SQL Editor in order, starting with `supabase-schema.sql`, then social/air, security hardening, phase scripts, and `supabase-pro.sql`. Cloud keys for the browser live in `cloud-config.js` (anon key only).
+**Easiest:** run `www/supabase-ALL-IN-ONE.sql` once in the Supabase SQL Editor (all migrations, correct order, re-runnable). The individual files below are kept for reference; if you run them yourself, use exactly this order:
 
-## SEO
-Canonical and Open Graph point to `https://tapehead-pro2.vercel.app`.
+1. `www/supabase-schema.sql` (already includes follows/messages, so `supabase-social.sql` is not needed)
+2. `www/supabase-air.sql`
+3. `www/supabase-security-hardening.sql`
+4. `www/supabase-pro.sql`
+5. `www/supabase-phase4.sql`, `supabase-phase5.sql`, `supabase-phase6.sql`, `supabase-phase8.sql` (in that order)
 
-## Production Pro billing
+Use the Supabase **anon** key only in frontend config. Keep the **service role** key server-only.
 
-Pro billing is server-authoritative. Do **not** put Pesapal keys in `cloud-config.js` or frontend code.
+## Cloud AI (Write page)
 
-Run these SQL files in Supabase (in order with your full migration set):
+Server route: `/api/ai`. The browser never receives the OpenAI API key.
 
-1. `supabase-schema.sql`
-2. `supabase-security-hardening.sql`
-3. `supabase-pro.sql`
+**Vercel environment variables:**
 
-**Vercel server environment variables:**
-
+- `OPENAI_API_KEY` — server only
+- `OPENAI_MODEL` — optional (default configured in `.env.example`)
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` — server only
-- `OPENAI_API_KEY` — server only
-- `OPENAI_MODEL` (optional)
-- `PESAPAL_CONSUMER_KEY` — server only
-- `PESAPAL_CONSUMER_SECRET` — server only
-- `PESAPAL_ENV` — `sandbox` (default) or `live`
-- `PESAPAL_IPN_ID` — optional; otherwise registered automatically
-- Prices are always in USD (defaults 4.99 / 29 / 49). Optional overrides: `PRO_MONTHLY_PRICE`, `PRO_YEARLY_PRICE`, `PRO_LIFETIME_PRICE`
-- `PUBLIC_APP_URL` — production URL
 
-Pesapal IPN URL (registered automatically on first checkout):
+Cloud AI actions: Finish Verse, Write Next, Polish, Hook Lab, Create Full Song. AI is limited to 30 requests per user per hour and requires an active Pro entitlement (including trial). When Cloud AI is unavailable, supported local songwriting fallbacks remain available.
 
-`https://YOUR-DOMAIN/api/pesapal-ipn`
+Never place `OPENAI_API_KEY` or `SUPABASE_SERVICE_ROLE_KEY` in `cloud-config.js`, `index.html`, or any client-exposed file.
 
-Payments are created on the server, verified against transaction reference, amount, currency, and successful status before Pro is granted. The frontend never receives the Pesapal keys.
+## Social (AIR)
 
-Cloud AI and other paid backend features enforce Pro through `pro_entitlements` on the server.
+Cloud accounts, Feed, follow/unfollow, private messaging, and realtime Collab chat run through Supabase. See `AIR-SOCIAL-SETUP.md`.
+
+## Pro billing
+
+Pro billing is server-authoritative via Pesapal. See `BILLING-SETUP.md`.
+
+Paid access is granted only after server verification of the transaction (checkout + verify + webhook). AI and entitlement checks use `pro_entitlements` on the server.
+
+## Security
+
+Production hardening is documented in `SECURITY-AUDIT.md` and applied via `supabase-security-hardening.sql` and the serverless API routes. Account deletion is available through `/api/delete-account`.
 
 ## Support
 
