@@ -1,11 +1,23 @@
+## 1.10.26 — Production Bug-Fix Pass
+- Corrected stale app/package version metadata to 1.10.26.
+- Added the missing automated `npm test` command for the existing test suites.
+- Fixed an accidental global assignment in AI Beat generation.
+- Bumped the service-worker cache version so deployed mobile shells refresh cleanly.
+- Re-ran Hum → Chord and Pesapal flow regression tests.
+
 # Tapehead Pro Changelog
+
+## 1.10.16 — Beat Maker Upgrade
+- Added a premium Beat Maker header with fast BPM controls and Tap Tempo.
+- Added Straight, Pocket, Bounce and Shuffle groove presets.
+- Beat pads now cycle Off → Soft → Normal → Accent for more expressive programming.
+- Accent/soft velocity is preserved in playback and offline bounce while remaining compatible with existing binary patterns.
+- Added step accessibility labels and keyboard activation.
+- Added live hit/accent count and clearer beat-programming guidance.
+
 
 ## 1.10.15
 - Vocal Tune (auto-tune) on the Record page: Off / Natural / Pop / Hard. Corrects the active take (pitch-tracked, PSOLA, plain JavaScript, no worklet); Off restores the original voice
-- Voice polish: recordings sounded saggy and unclear because the mic was captured with the browser's voice-call processing (echo cancel, noise suppression, auto gain) and a low bitrate. Capture is now clean at 256 kbps, and a new Clean voice step (on by default) removes rumble and hiss, cuts low-mid mud, tames harsh s sounds, evens out loudness and adds presence and air. The original is always kept; Off restores it
-- New Speakers chip: tick it if the beat plays out loud so echo cancelling stays on
-- Auto-tune pitch marks now lock to one peak per period (fixes an occasional octave-down growl on some voices)
-- Messages now always show the artist's name. Names come from the public artist profiles (not the private profile row), are remembered between syncs, and a message from someone else is never labelled with your own name or a raw ID. Inbox rows show the artist and "You:" on your own last message; the chat header says who it is private with; incoming bubbles are labelled; the box reads "Message <name>…"
 - Snap scale now means something: tick it to tune to the song key and scale, otherwise it snaps to the nearest note
 - Pick a style before recording and new takes are tuned automatically after you stop
 - Added the missing WAV encoder used by the mix bounce (audioBufferToWavBlob was called but never defined)
@@ -102,3 +114,19 @@ Monolithic PWA (`www/index.html`) + service worker. Audio via Web Audio API mult
 - Space bar transport works in guest mode
 - iOS: arrangement bar inputs use 16px (no focus zoom)
 - Menu bounce routes to multi-bus doMixdown (no vocal required)
+
+## v1.10.18 — Feed Clean Social Upgrade
+- Simplified Feed navigation into For You, Popular, Following, and Collab.
+- Moved genre/media filters behind a compact Filters control.
+- Added compact artist/song search treatment and refresh control.
+- Added Following filtering using local/cloud follow relationships.
+- Simplified post actions to like, comment, remix, and context-aware vocal action.
+- Improved Feed spacing and mobile-first social listening layout.
+
+## v1.10.20 — Collab Focused
+- Simplified Collab lobby around New room and Join a room.
+- Added lightweight artist discovery for profiles marked Open to collab.
+- Added direct artist profile entry from discovery cards.
+- Moved My rooms into a collapsible section to reduce clutter.
+- Improved mobile layout for artist cards and room-code entry.
+- Preserved existing collaboration rooms, section claiming, beat sync, vocals, chat, snapshots and version history.
