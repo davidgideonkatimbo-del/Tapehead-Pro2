@@ -1,3 +1,10 @@
+## 1.10.56 — Load-speed quick wins
+- Feed loads 30 posts first with a "Load more posts" button (was 80 at once); artist profiles still fetch up to 80 of that artist's posts.
+- Realtime refresh now waits 1.5s to batch bursts of likes/comments and pauses while the tab is hidden.
+- Feed likes and comments load in parallel; artist profiles fetch only that artist's posts; chat peer profiles are cached for 5 minutes.
+- Google Fonts no longer block first paint; added preconnect for jsDelivr and Supabase.
+- Avatar images lazy-load; added cache headers for icons/OG image and revalidation for the app shell.
+
 ## 1.10.26 — Production Bug-Fix Pass
 - Corrected stale app/package version metadata to 1.10.26.
 - Added the missing automated `npm test` command for the existing test suites.
