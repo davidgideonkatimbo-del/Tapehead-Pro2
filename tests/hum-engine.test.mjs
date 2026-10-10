@@ -1,5 +1,5 @@
 import fs from 'node:fs'; import assert from 'node:assert/strict';
-const html=fs.readFileSync(new URL('../www/index.html',import.meta.url),'utf8');const a=html.indexOf('const NOTE_NAMES_SHARP'),b=html.indexOf('/* ══ Extras');const src=html.slice(a,b);
+const html=fs.readFileSync(new URL('../www/app.js',import.meta.url),'utf8');const a=html.indexOf('const NOTE_NAMES_SHARP'),b=html.indexOf('/* ══ Extras');const src=html.slice(a,b);
 const api=new Function(src+'; return {detectPitch,melodyToChords,buildChord};')();
 const sr=44100;
 const tone=(f,n=2048,amp=0.4,harm=true)=>{const b=new Float32Array(n);for(let i=0;i<n;i++){let v=Math.sin(2*Math.PI*f*i/sr);if(harm)v+=0.5*Math.sin(2*Math.PI*2*f*i/sr)+0.25*Math.sin(2*Math.PI*3*f*i/sr);b[i]=amp*v/1.75;}return b;};

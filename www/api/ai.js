@@ -1,18 +1,8 @@
-// Tapehead Pro — secure server-side AI route for the Write page.
-// Vercel Serverless Function. Never put OPENAI_API_KEY in the browser.
-const ALLOWED = new Set(["finish_verse","next_section","polish","hook","full_song"]);
-const AI_LIMIT_PER_HOUR = 30;
-
-async function hasActivePro(userId) {
-  const base = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!base || !key) return false;
-  const r = await fetch(`${base}/rest/v1/pro_entitlements?user_id=eq.${encodeURIComponent(userId)}&status=eq.active&select=plan,expires_at&limit=1`, { headers: { apikey:key, Authorization:`Bearer ${key}` } });
-  if (!r.ok) return false;
-  const rows = await r.json();
-  const p = rows[0];
-  return !!p && (!p.expires_at || Date.now() < new Date(p.expires_at).getTime());
-}
+// Tapehead Pro — hardened server-side AI route (v1.11 maturity).
+// Never put OPENAI_API_KEY in the browser.
+import { getBearerUser, getEntitlement, sbBase, sbHeaders } from './_pro.js';
+import { rateLimitIp, clean, aiLimitForPlan, ALLOWED_AI_ACTIONS } from './security.js';
+import { createJob, publicJob } from './_jobs.js';
 
 const STYLE_NOTES = {
   contemporary: "current, natural songwriting with a strong conversational voice",
@@ -29,10 +19,6 @@ function json(res, status, body) {
   res.status(status).json(body);
 }
 
-function clean(v, max = 12000) {
-  return String(v || "").replace(/\u0000/g, "").trim().slice(0, max);
-}
-
 function extractText(data) {
   if (typeof data?.output_text === "string" && data.output_text.trim()) return data.output_text.trim();
   const out = Array.isArray(data?.output) ? data.output : [];
@@ -45,39 +31,53 @@ function extractText(data) {
   return parts.join("\n").trim();
 }
 
-async function verifyUser(req) {
-  const auth = String(req.headers.authorization || "");
-  if (!auth.startsWith("Bearer ")) return null;
-  const token = auth.slice(7).trim();
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const anonKey = process.env.SUPABASE_ANON_KEY;
-  if (!token || !supabaseUrl || !anonKey) return null;
+/** Check quota without consuming (service role). Falls back to REST count. */
+async function checkUsage(userId, limit) {
+  const base = sbBase();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!base || !key) return { ok: false, configured: false };
 
-  const r = await fetch(`${supabaseUrl.replace(/\/$/, "")}/auth/v1/user`, {
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${token}`
+  // Prefer RPC check_ai_usage when available
+  try {
+    const r = await fetch(`${base}/rest/v1/rpc/check_ai_usage`, {
+      method: "POST",
+      headers: sbHeaders(),
+      body: JSON.stringify({ p_user_id: userId, p_limit: limit })
+    });
+    if (r.ok) {
+      const ok = await r.json();
+      return { ok: !!ok, configured: true };
     }
-  });
-  if (!r.ok) return null;
-  return r.json();
+  } catch (_) { /* fall through */ }
+
+  // Fallback: count rows in the last hour
+  const since = new Date(Date.now() - 3600_000).toISOString();
+  const r2 = await fetch(
+    `${base}/rest/v1/ai_usage?user_id=eq.${encodeURIComponent(userId)}&created_at=gte.${since}&select=id`,
+    { headers: sbHeaders() }
+  );
+  if (!r2.ok) throw new Error("AI usage check failed");
+  const rows = await r2.json();
+  return { ok: (rows?.length || 0) < limit, configured: true, used: rows?.length || 0 };
 }
 
-
-async function checkAndRecordUsage(userId) {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.SUPABASE_URL;
-  if (!serviceKey || !supabaseUrl) return { ok: false, configured: false };
-  const base = supabaseUrl.replace(/\/$/, "");
-  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };
-  const r = await fetch(`${base}/rest/v1/rpc/consume_ai_usage`, {
+/** Record one successful AI use. */
+async function recordUsage(userId) {
+  const base = sbBase();
+  if (!base || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  try {
+    const r = await fetch(`${base}/rest/v1/rpc/record_ai_usage`, {
+      method: "POST",
+      headers: sbHeaders(),
+      body: JSON.stringify({ p_user_id: userId })
+    });
+    if (r.ok) return;
+  } catch (_) { /* fall through */ }
+  await fetch(`${base}/rest/v1/ai_usage`, {
     method: "POST",
-    headers,
-    body: JSON.stringify({ p_user_id: userId, p_limit: AI_LIMIT_PER_HOUR })
+    headers: { ...sbHeaders(), Prefer: "return=minimal" },
+    body: JSON.stringify({ user_id: userId })
   });
-  if (!r.ok) throw new Error("AI usage check failed");
-  const ok = await r.json();
-  return { ok: !!ok, configured: true, retryAfter: ok ? 0 : 3600 };
 }
 
 function buildInstructions(action, options) {
@@ -87,6 +87,7 @@ function buildInstructions(action, options) {
   const key = clean(options.key || "unspecified", 20);
   const bpm = Number(options.bpm) || 120;
   const length = Math.min(12, Math.max(4, Number(options.length) || 8));
+  const continuityBrief = clean(options.continuityBrief || "", 1200);
 
   const base = `You are Tapehead Pro's premium songwriting assistant.
 Write original lyrics only. Do not imitate or reproduce a living artist's distinctive style, copyrighted lyrics, or recognizable lines.
@@ -94,7 +95,7 @@ Style: ${style}.
 Language: ${language}.
 Mood: ${mood}.
 Musical context: key ${key}, ${bpm} BPM.
-Prioritize specificity, emotional truth, singability, fresh imagery, varied line lengths, and natural rhyme.
+${continuityBrief ? continuityBrief + "\n" : ""}Prioritize specificity, emotional truth, singability, fresh imagery, varied line lengths, and natural rhyme.
 Avoid filler, generic motivational phrases, overused AI metaphors, and forced rhymes.
 Return ONLY usable lyric text, with no commentary, labels, quotation marks, or markdown unless the task explicitly requests section labels.`;
 
@@ -104,7 +105,7 @@ Task: Continue the current section as a coherent verse. Preserve the user's voic
   }
   if (action === "next_section") {
     return `${base}
-Task: Write the next song section after the supplied section. Develop the story rather than paraphrasing it. Add ${length} lines.`;
+Task: Write the next logical section. Develop the story rather than paraphrasing it. Add ${length} lines.`;
   }
   if (action === "polish") {
     return `${base}
@@ -128,13 +129,21 @@ Write 2-4 lines for Intro and Outro, 6-10 lines for each Verse, 4-8 lines for Ch
 export default async function handler(req, res) {
   if (req.method !== "POST") return json(res, 405, { error: "POST required" });
 
+  // Secondary defense: IP rate limit (per instance)
+  const ipLimit = rateLimitIp(req, { limit: 40, windowMs: 60_000 });
+  if (!ipLimit.ok) {
+    res.setHeader("Retry-After", String(ipLimit.retryAfter || 60));
+    return json(res, 429, { error: "Too many requests. Slow down and try again." });
+  }
+
   try {
-    const user = await verifyUser(req);
+    const user = await getBearerUser(req);
     if (!user?.id) return json(res, 401, { error: "Sign in required for Cloud AI." });
 
+    // Reject obviously invalid bodies early
     const body = typeof req.body === "object" && req.body ? req.body : {};
     const action = String(body.action || "");
-    if (!ALLOWED.has(action)) return json(res, 400, { error: "Unsupported AI action." });
+    if (!ALLOWED_AI_ACTIONS.has(action)) return json(res, 400, { error: "Unsupported AI action." });
 
     const prompt = clean(body.prompt, 1600);
     const context = clean(body.context, 7000);
@@ -143,15 +152,54 @@ export default async function handler(req, res) {
     const section = clean(body.section, 100);
     const options = body.options && typeof body.options === "object" ? body.options : {};
 
-    if (!prompt && action !== "full_song") return json(res, 400, { error: "A prompt or lyric seed is required." });
+    if (!prompt && action !== "full_song") {
+      return json(res, 400, { error: "A prompt or lyric seed is required." });
+    }
 
-    if (!(await hasActivePro(user.id))) return json(res, 403, { error: 'Pro or an active trial is required for Cloud AI.' });
+    // Strict server-side Pro entitlement (shared helper)
+    const entitlement = await getEntitlement(user.id);
+    if (!entitlement) {
+      return json(res, 403, { error: "Pro or an active trial is required for Cloud AI." });
+    }
 
-    const usage = await checkAndRecordUsage(user.id);
-    if (!usage.configured) return json(res, 503, { error: "Cloud AI is not fully configured. Add SUPABASE_SERVICE_ROLE_KEY." });
+    const limit = aiLimitForPlan(entitlement.plan);
+    const usage = await checkUsage(user.id, limit);
+    if (!usage.configured) {
+      return json(res, 503, { error: "Cloud AI is not fully configured." });
+    }
     if (!usage.ok) {
-      res.setHeader("Retry-After", String(usage.retryAfter || 3600));
-      return json(res, 429, { error: "AI limit reached. Try again later." });
+      res.setHeader("Retry-After", "3600");
+      return json(res, 429, {
+        error: "AI limit reached for this hour. Try again later.",
+        limit,
+        plan: entitlement.plan || "pro"
+      });
+    }
+
+    // Optional async path for long generations (durable job)
+    const asyncMode = body.async === true || body.async === '1' || action === 'full_song' && body.async !== false && body.async !== '0' && process.env.AI_ASYNC_FULL_SONG === '1';
+    if (asyncMode && action === 'full_song') {
+      try {
+        const job = await createJob({
+          userId: user.id,
+          kind: 'ai_generate',
+          payload: { action, prompt, context, lyrics, hook, section, options },
+          priority: 5
+        });
+        return json(res, 202, {
+          async: true,
+          job: publicJob(job),
+          message: 'Generation queued. Poll GET /api/jobs?id=' + job.id
+        });
+      } catch (e) {
+        console.warn('async job create failed, falling back to sync', e);
+        // fall through to sync
+      }
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return json(res, 503, { error: "Cloud AI is temporarily unavailable. Please try again later." });
     }
 
     const userInput = [
@@ -161,9 +209,6 @@ export default async function handler(req, res) {
       `Existing hook:\n${hook || "(none)"}`,
       `Existing song context:\n${lyrics || "(none)"}`
     ].join("\n\n");
-
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return json(res, 503, { error: "Cloud AI is temporarily unavailable. Please try again later." });
 
     const model = process.env.OPENAI_MODEL || "gpt-5.6-sol";
     const payload = {
@@ -187,15 +232,26 @@ export default async function handler(req, res) {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const message = data?.error?.message || "Upstream AI request failed.";
+      // Do NOT record usage on upstream failure
       return json(res, response.status >= 500 ? 502 : response.status, { error: message });
     }
 
     const text = extractText(data);
     if (!text) return json(res, 502, { error: "AI returned an empty response." });
 
-    return json(res, 200, { text, model });
+    // Count only successful generations
+    await recordUsage(user.id);
+
+    return json(res, 200, {
+      text,
+      model,
+      usage: { limit, plan: entitlement.plan || "pro" }
+    });
   } catch (err) {
     console.error("Tapehead AI route error:", err);
     return json(res, 500, { error: "AI service temporarily unavailable." });
   }
 }
+
+// Exported for tests
+export { checkUsage, recordUsage, buildInstructions, extractText, aiLimitForPlan, ALLOWED_AI_ACTIONS };

@@ -1,4 +1,24 @@
+## Unreleased — Jobs security hotfix (server only)
+- /api/jobs?op=process now fails closed: with no JOBS_PROCESS_SECRET / CRON_SECRET it returns 503 instead of letting anyone run the processor (and spend OpenAI credit). Secret comparison is constant-time.
+- Creating an AI job now goes through the same gates as /api/ai: Pro/trial, plan-aware hourly limit, and a cleaned payload (whitelisted fields, clamped lengths, server-chosen priority). Only job kinds that have a processor can be created.
+- Jobs that finish successfully are now counted against the owner's AI usage (queued full songs used to be free and unlimited).
+- A user can have at most 3 unfinished jobs (last 30 minutes); /api/ai falls back to the normal sync call when the queue is full.
+- Users can no longer insert/update/delete rows in tapehead_jobs directly. Run www/supabase-jobs-hotfix.sql on existing installs.
+
+## v1.11.4 — Project persistence and recovery integration
+
+- Added a shared project persistence boundary for local parsing, validation, serialization and deterministic local/cloud merging.
+- Preserved full project snapshots in the optional `projects.project_data` column; legacy schemas fall back to existing project columns and log a migration reminder.
+- Added the owner-only rolling project version-history migration (`www/supabase-phase9-project-recovery.sql`).
+- Connected Write AI to the v1.11 durable jobs contract while retaining synchronous AI compatibility.
+- Standardized app/package/service-worker versions to 1.11.4.
+- Kept the v1.11 jobs API rather than importing the older incompatible `/api/ai-status` queue client.
+
 ## 1.10.56 — Load-speed quick wins
+- Write Studio premium layer restored (it was referenced but missing): quick section chips, live hero pills, Writing Coach stats, Song Compass progress, Duplicate/Rename/Move/Delete section, Focus writing (Esc to exit) and the Idea Vault (saved on this device).
+- Main app script moved to `app.js` (index.html 632 KB → 267 KB); both are revalidated on each visit, so repeat loads are tiny when unchanged.
+- Fixed grid-resolution chips (1/8, 1/16, 1/32) and Library/project helpers failing with "not defined" errors: main-scope functions are now exposed to the later scripts.
+- First install no longer reloads the page once the service worker takes control.
 - Feed loads 30 posts first with a "Load more posts" button (was 80 at once); artist profiles still fetch up to 80 of that artist's posts.
 - Realtime refresh now waits 1.5s to batch bursts of likes/comments and pauses while the tab is hidden.
 - Feed likes and comments load in parallel; artist profiles fetch only that artist's posts; chat peer profiles are cached for 5 minutes.

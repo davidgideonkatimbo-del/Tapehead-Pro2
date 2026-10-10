@@ -1,3 +1,7 @@
+## Latest release: v1.11.4
+
+Project persistence/recovery integration adds validated local saves, timestamp-based cloud merge, complete project snapshots (when the Supabase recovery migration is applied), and owner-only version history. See `TAPEHEAD-V1.11.4-PERSISTENCE-RECOVERY.md`.
+
 # Tapehead Pro
 
 **Live:** [https://tapehead-pro2.vercel.app](https://tapehead-pro2.vercel.app)

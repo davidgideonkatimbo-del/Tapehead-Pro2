@@ -1,6 +1,18 @@
 /* Tapehead Pro service worker — network-first shell with offline fallback */
-const CACHE='tapehead-v11056';
-const SHELL = ['./index.html', './cloud-config.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+const CACHE = 'tapehead-v1114-1';
+const SHELL = [
+  './index.html',
+  './app.js?v=1.11.4-mod',
+  './js/state.js?v=1.11.4-mod',
+  './js/cloud.js?v=1.11.4-mod',
+  './js/continuity.js?v=1.11.4-mod',
+  './project-persistence.js?v=1.11.4',
+  './ai-job-client.js?v=1.11.4',
+  './cloud-config.js',
+  './manifest.webmanifest',
+  './icon-192.png',
+  './icon-512.png'
+];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -36,7 +48,8 @@ self.addEventListener('fetch', (e) => {
     url.pathname.endsWith('/') ||
     url.pathname.endsWith('sw.js') ||
     url.pathname.endsWith('cloud-config.js') ||
-    url.pathname.endsWith('manifest.webmanifest');
+    url.pathname.endsWith('manifest.webmanifest') ||
+    url.pathname.includes('/js/');
 
   if (isShell) {
     e.respondWith(
@@ -44,7 +57,6 @@ self.addEventListener('fetch', (e) => {
         .then((res) => {
           if (res && res.ok) {
             const copy = res.clone();
-            // Cache each file under its own URL (never store one page under another page's key).
             caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
           }
           return res;
