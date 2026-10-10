@@ -1,13 +1,11 @@
 /* Tapehead Pro service worker — network-first shell with offline fallback */
-const CACHE = 'tapehead-v1114-1';
+const CACHE = 'tapehead-v1115-1';
 const SHELL = [
   './index.html',
-  './app.js?v=1.11.4-mod',
-  './js/state.js?v=1.11.4-mod',
-  './js/cloud.js?v=1.11.4-mod',
-  './js/continuity.js?v=1.11.4-mod',
-  './project-persistence.js?v=1.11.4',
-  './ai-job-client.js?v=1.11.4',
+  './app.js?v=1.11.5-navfix',
+  './js/state.js?v=1.11.0-mod',
+  './js/cloud.js?v=1.11.0-mod',
+  './js/continuity.js?v=1.11.0-mod',
   './cloud-config.js',
   './manifest.webmanifest',
   './icon-192.png',
@@ -35,8 +33,6 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
 
-  // Never cache API responses: auth, Pro status, AI, payments and account
-  // operations must always reach the server and must never be served stale.
   if (url.pathname.startsWith('/api/')) {
     e.respondWith(fetch(e.request, { cache: 'no-store' }));
     return;
