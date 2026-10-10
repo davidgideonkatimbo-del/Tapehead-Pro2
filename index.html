@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-app-version="1.11.4">
+<html lang="en" data-app-version="1.11.0">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
@@ -2965,12 +2965,10 @@ body{font-size:13px;line-height:1.45}
 </div>
 
 <div class="toast" id="toast"></div>
-<script src="js/state.js?v=1.11.4-mod"></script>
-<script src="js/continuity.js?v=1.11.4-mod"></script>
-<script src="js/cloud.js?v=1.11.4-mod"></script>
-<script src="project-persistence.js?v=1.11.4"></script>
-<script src="ai-job-client.js?v=1.11.4"></script>
-<script src="app.js?v=1.11.4-mod"></script>
+<script src="js/state.js?v=1.11.0-mod"></script>
+<script src="js/continuity.js?v=1.11.0-mod"></script>
+<script src="js/cloud.js?v=1.11.0-mod"></script>
+<script src="app.js?v=1.11.5-navfix"></script>
 
 <script>
 (function () {
@@ -3005,7 +3003,7 @@ body{font-size:13px;line-height:1.45}
     window.location.reload();
   });
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('./sw.js?v=v1114').then(function (reg) {
+    navigator.serviceWorker.register('./sw.js?v=v1115').then(function (reg) {
       reg.update();
       setInterval(function () { reg.update(); }, 30 * 1000);
       if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });

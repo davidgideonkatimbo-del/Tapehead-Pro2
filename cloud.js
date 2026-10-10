@@ -198,46 +198,34 @@ window.TapeheadCloud = {
       pattern: s.pattern || {},
       kit: s.kit || 'trap',
       vocal_meta: s.vocalMeta || null,
-      project_data: s,
       updated_at: new Date(s.updated || Date.now()).toISOString()
     }));
     if (!rows.length) return true;
-    let result = await this.sb.from('projects').upsert(rows);
-    // Older Supabase schemas may not yet have project_data. Keep legacy saves
-    // working until the recovery migration is applied, rather than losing saves.
-    if (result.error && /project_data|column .* does not exist|schema cache/i.test(String(result.error.message || result.error))) {
-      const legacyRows = rows.map(({ project_data, ...row }) => row);
-      result = await this.sb.from('projects').upsert(legacyRows);
-      if (!result.error) console.warn('[Tapehead] Project snapshot recovery is not enabled yet; apply supabase-phase9-project-recovery.sql.');
-    }
-    if (result.error) console.warn('saveProjects', result.error);
-    return !result.error;
+    const { error } = await this.sb.from('projects').upsert(rows);
+    if (error) console.warn('saveProjects', error);
+    return !error;
   },
 
   async loadProjects(userId) {
     if (!this.isCloud() || !userId) return null;
     const { data, error } = await this.sb.from('projects').select('*').eq('user_id', userId).order('updated_at', { ascending: false });
     if (error) return null;
-    return (data || []).map(r => {
-      const snapshot = r.project_data && typeof r.project_data === 'object' && !Array.isArray(r.project_data) ? r.project_data : {};
-      return {
-        ...snapshot,
-        id: r.id,
-        title: snapshot.title || r.title,
-        lyrics: snapshot.lyrics ?? r.lyrics ?? '',
-        hook: snapshot.hook ?? r.hook ?? '',
-        key: snapshot.key ?? r.song_key ?? '',
-        mood: snapshot.mood ?? r.mood ?? '',
-        ref: snapshot.ref ?? r.reference ?? '',
-        sections: Array.isArray(snapshot.sections) ? snapshot.sections : (Array.isArray(r.sections) ? r.sections : []),
-        bpm: snapshot.bpm || r.bpm || 120,
-        stepCount: snapshot.stepCount || r.step_count || 16,
-        pattern: snapshot.pattern || r.pattern || {},
-        kit: snapshot.kit || r.kit || 'trap',
-        vocalMeta: snapshot.vocalMeta ?? r.vocal_meta ?? null,
-        updated: Number(snapshot.updated) || new Date(r.updated_at).getTime()
-      };
-    });
+    return (data || []).map(r => ({
+      id: r.id,
+      title: r.title,
+      lyrics: r.lyrics || '',
+      hook: r.hook || '',
+      key: r.song_key || '',
+      mood: r.mood || '',
+      ref: r.reference || '',
+      sections: Array.isArray(r.sections) ? r.sections : [],
+      bpm: r.bpm || 120,
+      stepCount: r.step_count || 16,
+      pattern: r.pattern || {},
+      kit: r.kit || 'trap',
+      vocalMeta: r.vocal_meta || null,
+      updated: new Date(r.updated_at).getTime()
+    }));
   },
 
   async publishFeed(post) {

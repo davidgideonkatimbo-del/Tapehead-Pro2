@@ -41,7 +41,7 @@
       ]
     },
     {
-      "source": "/(index\\.html|app\\.js|sw\\.js|cloud-config\\.js|manifest\\.webmanifest|project-persistence\\.js|ai-job-client\\.js)",
+      "source": "/(index\\.html|app\\.js|sw\\.js|cloud-config\\.js|manifest\\.webmanifest)",
       "headers": [
         {
           "key": "Cache-Control",

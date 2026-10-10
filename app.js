@@ -516,7 +516,9 @@ function requireAuth(soft){
   if(state.user) return true;
   if(soft){
     toast('Sign in to unlock this feature');
-    openAuth('signin');
+    // Guest mode: toast only — opening the auth modal covers the bottom nav
+    // and makes Write/Studio/Feed/Collab feel "broken".
+    if(!state.guest) openAuth('signin');
     return false;
   }
   lockApp(true);
@@ -618,7 +620,7 @@ function setView(name){
   if(name==='studio'){
     name = state.studioView || 'beat';
   }
-  const freeViews = ['write','keys','beat','record','mix'];
+  const freeViews = ['write','keys','beat','record','mix','community','collab'];
   const studioTools = ['keys','beat','record','mix'];
   if(!state.user){
     if(freeViews.indexOf(name) >= 0){
@@ -671,7 +673,8 @@ document.querySelectorAll('.view').forEach(v=>{v.hidden=true;v.setAttribute('hid
       };
       updateRecBeatBedUI();
     } catch (e) {}
-  }if(name==='keys'){try{renderProgStrip();buildPiano()}catch(e){}}if(name==='beat'){try{ensurePatternLength(state.stepCount||16);buildTracks()}catch(e){}}if(name==='community'){try{bindFeedPro();bindCommunityActions(); try{bindFeedGlobalOnce()}catch(e){}}catch(e){}renderCommunityFeed();}if(name==='collab'){
+  }if(name==='keys'){try{renderProgStrip();buildPiano()}catch(e){}}if(name==='beat'){try{ensurePatternLength(state.stepCount||16);buildTracks()}catch(e){}}if(name==='community'){try{if(!state.user&&state.guest&&!state._guestFeedTip){state._guestFeedTip=1;toast('Guest can browse Feed — sign in to post & like');}bindFeedPro();bindCommunityActions(); try{bindFeedGlobalOnce()}catch(e){}}catch(e){}renderCommunityFeed();}if(name==='collab'){
+  try{if(!state.user&&state.guest&&!state._guestCollabTip){state._guestCollabTip=1;toast('Guest can open Collab — sign in to create or join rooms');}}catch(e){}
   try{
     const btn=document.getElementById('createRoomBtn');
     const t=(document.getElementById('songTitle')?.value||'Untitled');
@@ -2424,22 +2427,15 @@ async function requestPremiumAI(action, source, extra={}) {
     hook: (document.getElementById('songHook')?.value || '').trim(),
     options
   };
-  let data;
-  if (window.TapeheadAIJobs && typeof window.TapeheadAIJobs.submitAndWait === 'function') {
-    data = await window.TapeheadAIJobs.submitAndWait({
-      endpoint, token, body,
-      onStatus: status => setAiStatus(status === 'queued' ? 'AI queued…' : 'AI is working…')
-    });
-  } else {
-    const res=await fetch(endpoint,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-      body:JSON.stringify(body)
-    });
-    data=await res.json().catch(()=>({}));
-    if(!res.ok) throw new Error(data.error || `AI request failed (${res.status})`);
-  }
-  if(!data || !data.text) throw new Error('AI returned no text');
+  const res=await fetch(endpoint,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+    body:JSON.stringify(body)
+  });
+  let data={};
+  try{data=await res.json();}catch(e){}
+  if(!res.ok) throw new Error(data.error || `AI request failed (${res.status})`);
+  if(!data.text) throw new Error('AI returned no text');
   window._aiCloudReady=true;
   return data;
 }
@@ -3229,9 +3225,7 @@ function getSongsKey() {
 
 function loadUserSongs() {
   try {
-    const raw = localStorage.getItem(getSongsKey()) || '[]';
-    const persistence = window.TapeheadProjectPersistence;
-    return persistence ? persistence.parseSongs(raw) : JSON.parse(raw);
+    return JSON.parse(localStorage.getItem(getSongsKey()) || '[]');
   } catch { return []; }
 }
 
@@ -3239,11 +3233,7 @@ let _cloudProjectSaveTimer = null;
 let _cloudProjectSaveInFlight = false;
 let _cloudProjectSaveQueued = false;
 function persistSongs() {
-  try {
-    const persistence = window.TapeheadProjectPersistence;
-    const serialized = persistence ? persistence.serializeSongs(state.songs || []) : JSON.stringify(state.songs || []);
-    localStorage.setItem(getSongsKey(), serialized);
-  } catch(e) { console.warn('persist', e); }
+  try { localStorage.setItem(getSongsKey(), JSON.stringify(state.songs || [])); } catch(e) { console.warn('persist', e); }
   if (Cloud.isCloud() && state.user?.cloudId) scheduleCloudProjectSave();
 }
 function scheduleCloudProjectSave() {
@@ -3269,14 +3259,12 @@ async function hydrateCloudProjects() {
   try {
     const remote = await Cloud.loadProjects(state.user.cloudId);
     if (!Array.isArray(remote)) return;
-    const persistence = window.TapeheadProjectPersistence;
-    state.songs = persistence
-      ? persistence.mergeProjects(state.songs || [], remote)
-      : (() => {
-          const merged = new Map((state.songs || []).map(s => [s.id, s]));
-          remote.forEach(r => { const local = merged.get(r.id); if (!local || (r.updated || 0) > (local.updated || 0)) merged.set(r.id, r); });
-          return [...merged.values()].sort((a,b)=>(b.updated||0)-(a.updated||0));
-        })();
+    const merged = new Map((state.songs || []).map(s => [s.id, s]));
+    remote.forEach(r => {
+      const local = merged.get(r.id);
+      if (!local || (r.updated || 0) > (local.updated || 0)) merged.set(r.id, r);
+    });
+    state.songs = [...merged.values()].sort((a,b)=>(b.updated||0)-(a.updated||0));
     persistSongs();
     renderSongList();
     if (state.currentSongId && state.songs.some(s => s.id === state.currentSongId)) loadSong(state.currentSongId);
@@ -4003,7 +3991,12 @@ function openAuth(tab) {
 }
 function closeAuth() {
   const m = document.getElementById('authModal');
-  if (m) { m.classList.remove('show'); m.style.display = ''; }
+  if (m) {
+    m.classList.remove('show');
+    m.style.display = '';
+    m.style.opacity = '';
+    m.style.pointerEvents = '';
+  }
   if (!state.user) {
     // "Not now" / dismiss → enter guest exploration instead of hard lock
     try { enterGuestMode(); } catch (e) { try { lockApp(false); } catch (e2) {} }
