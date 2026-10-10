@@ -1,5 +1,0 @@
-<!-- Merge these keys into the iOS target Info.plist. -->
-<key>NSMicrophoneUsageDescription</key>
-<string>Tapehead uses your microphone to record vocals and hum melodies.</string>
-<key>NSLocalNetworkUsageDescription</key>
-<string>Tapehead may use the local network when developing or testing collaboration features.</string>
