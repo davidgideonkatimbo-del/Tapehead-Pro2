@@ -1,6 +1,6 @@
 /* Tapehead Pro service worker — network-first shell with offline fallback */
-const CACHE='tapehead-v11056';
-const SHELL = ['./index.html', './cloud-config.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+const CACHE='tapehead-v11056-2';
+const SHELL = ['./index.html', './app.js?v=1.10.56', './cloud-config.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
